@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feedback – ÖAV Wiener Neustadt (intern)</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="feedback-admin-manifest.json">
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<meta name="theme-color" content="#1b4d3e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Feedback Admin">
+<style>
+:root{--primary:#1b4d3e;--primary-light:#286e59;--hover:#12352a;--bg:#f8fafc;--card:#ffffff;--text:#1e293b;--border:#e2e8f0;--radius:12px;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;margin:0;padding:20px}
+.container{max-width:900px;margin:0 auto}
+header{background:linear-gradient(135deg, var(--primary), var(--primary-light));color:#fff;padding:28px 25px;border-radius:var(--radius);text-align:center;margin-bottom:25px;box-shadow:0 8px 20px rgba(27,77,62,0.15)}
+header h1{margin:0;font-size:1.5rem;font-weight:800}
+header p{margin:6px 0 0 0;opacity:0.9;font-size:0.9rem}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(15,23,42,0.04)}
+
+/* Login-Ansicht */
+#login-view .form-group{margin-bottom:14px;text-align:left}
+#login-view label{display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:#475569}
+#login-view input{width:100%;padding:12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.95rem;box-sizing:border-box}
+#login-view input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(27,77,62,0.1)}
+button{background:var(--primary);color:#fff;border:none;padding:12px 22px;font-size:0.92rem;font-weight:700;border-radius:8px;cursor:pointer;transition:background 0.2s}
+button:hover{background:var(--hover)}
+button:disabled{opacity:0.6;cursor:not-allowed}
+#login-error{color:#dc2626;font-size:0.88rem;margin-top:10px;display:none}
+
+/* Zugriff verweigert */
+#denied-view{display:none;text-align:center}
+#denied-view .icon{font-size:2.5rem;margin-bottom:10px}
+
+/* Feedback-Liste */
+#app-view{display:none}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;align-items:center}
+#search-input{flex:1;min-width:180px;padding:11px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.92rem;box-sizing:border-box}
+.filter-chip{background:#fff;border:1.5px solid var(--border);color:#475569;padding:9px 16px;border-radius:20px;font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.filter-chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.filter-chip:hover:not(.active){border-color:var(--primary)}
+#logout-btn{background:#64748b;font-size:0.82rem;padding:9px 16px}
+#logout-btn:hover{background:#475569}
+
+#stats{font-size:0.85rem;color:#64748b;margin-bottom:16px}
+.stat-box{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:4px}
+.stat-value{font-size:1.6rem;font-weight:800;color:var(--primary)}
+.stat-label{font-size:0.78rem;color:#64748b;font-weight:600}
+.breakdown-row{margin-bottom:10px}
+.breakdown-row-top{display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px;gap:10px}
+.breakdown-row-name{color:#334155;font-weight:600}
+.breakdown-row-count{color:#64748b;white-space:nowrap}
+.breakdown-bar-bg{background:#f1f5f9;border-radius:6px;height:8px;overflow:hidden}
+.breakdown-bar-fill{background:var(--primary);height:100%;border-radius:6px}
+.breakdown-empty{color:#94a3b8;font-size:0.85rem}
+
+.feedback-item{background:var(--card);border:1px solid var(--border);border-left:5px solid var(--primary);border-radius:10px;padding:18px 20px;margin-bottom:14px;box-shadow:0 2px 6px rgba(15,23,42,0.03)}
+.feedback-item.cat-Fehler{border-left-color:#dc2626}
+.feedback-item.cat-Idee{border-left-color:#d97706}
+.feedback-item.cat-Sonstiges{border-left-color:#0284c7}
+.feedback-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.feedback-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:700;white-space:nowrap}
+.badge-Fehler{background:#fee2e2;color:#991b1b}
+.badge-Idee{background:#fef3c7;color:#92400e}
+.badge-Sonstiges{background:#e0f2fe;color:#075985}
+.feedback-date{font-size:0.8rem;color:#94a3b8;white-space:nowrap}
+.feedback-message{font-size:0.98rem;color:#1e293b;white-space:pre-line;margin-bottom:12px}
+.feedback-meta{font-size:0.8rem;color:#64748b;display:flex;flex-wrap:wrap;gap:14px;border-top:1px dashed var(--border);padding-top:10px}
+.feedback-meta span{white-space:nowrap}
+.feedback-meta a{color:var(--primary);text-decoration:none;font-weight:600}
+
+#empty-state{text-align:center;color:#94a3b8;padding:40px 20px}
+#loading-state{text-align:center;color:#64748b;padding:40px 20px}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>💬 Feedback-Übersicht</h1>
+<p>Interner Bereich · Alpenverein Wiener Neustadt · Ausrüstungsplaner</p>
+</header>
+
+<!-- Login -->
+<div id="login-view" class="card">
+ <h2 style="margin-top:0;">Anmelden</h2>
+ <div class="form-group">
+   <label for="login-email">E-Mail-Adresse</label>
+   <input type="email" id="login-email" placeholder="name@example.com">
+ </div>
+ <div class="form-group">
+   <label for="login-password">Passwort</label>
+   <input type="password" id="login-password" placeholder="••••••••">
+ </div>
+ <button type="button" id="login-btn" onclick="handleLogin()">Anmelden</button>
+ <p id="login-error"></p>
+</div>
+
+<!-- Zugriff verweigert -->
+<div id="denied-view" class="card">
+ <div class="icon">🔒</div>
+ <h2>Kein Zugriff</h2>
+ <p style="color:#64748b;">Dieses Konto hat keine Berechtigung, die Feedback-Einträge einzusehen.</p>
+ <button type="button" onclick="handleLogout()">Abmelden</button>
+</div>
+
+<!-- Feedback-Ansicht -->
+<div id="app-view">
+ <div class="card" id="usage-stats-card">
+   <h2 style="margin-top:0;font-size:1.1rem;">📊 Nutzung (anonym)</h2>
+   <div id="usage-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:6px;">
+     <div class="stat-box"><span class="stat-value" id="stat-users">–</span><span class="stat-label">Registrierte Nutzer</span></div>
+     <div class="stat-box"><span class="stat-value" id="stat-tourleaders">–</span><span class="stat-label">davon Tourenführer</span></div>
+     <div class="stat-box"><span class="stat-value" id="stat-tours">–</span><span class="stat-label">Gespeicherte/geteilte Touren</span></div>
+     <div class="stat-box"><span class="stat-value" id="stat-lists">–</span><span class="stat-label">Listen generiert (gesamt)</span></div>
+   </div>
+ </div>
+
+ <div class="card" id="breakdown-card">
+   <h2 style="margin-top:0;font-size:1.1rem;">🏔️ Was wird am häufigsten gewählt?</h2>
+   <p style="font-size:0.85rem;color:#64748b;margin-top:0;">Hilft dabei, genau die Touren-Kombinationen zu priorisieren, die am meisten genutzt werden.</p>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;margin-top:16px;">
+     <div>
+       <h3 style="font-size:0.95rem;color:var(--primary);margin-bottom:10px;">Kurslisten (Tourenführer)</h3>
+       <div id="breakdown-courses"></div>
+     </div>
+     <div>
+       <h3 style="font-size:0.95rem;color:var(--primary);margin-bottom:10px;">Disziplin & Geländeschwierigkeiten</h3>
+       <div id="breakdown-features"></div>
+     </div>
+     <div>
+       <h3 style="font-size:0.95rem;color:var(--primary);margin-bottom:10px;">Jahreszeit</h3>
+       <div id="breakdown-seasons"></div>
+     </div>
+     <div>
+       <h3 style="font-size:0.95rem;color:var(--primary);margin-bottom:10px;">Dauer</h3>
+       <div id="breakdown-durations"></div>
+     </div>
+   </div>
+ </div>
+ <div class="toolbar">
+   <input type="text" id="search-input" placeholder="🔍 Nachricht durchsuchen..." oninput="renderList()">
+   <button type="button" class="filter-chip active" data-cat="Alle" onclick="setFilter('Alle')">Alle</button>
+   <button type="button" class="filter-chip" data-cat="Fehler melden" onclick="setFilter('Fehler melden')">🐞 Fehler</button>
+   <button type="button" class="filter-chip" data-cat="Idee & Wunsch" onclick="setFilter('Idee & Wunsch')">💡 Idee</button>
+   <button type="button" class="filter-chip" data-cat="Sonstiges" onclick="setFilter('Sonstiges')">💬 Sonstiges</button>
+   <button type="button" id="logout-btn" onclick="handleLogout()">Abmelden</button>
+ </div>
+ <div id="stats"></div>
+ <div id="loading-state">Lade Feedback...</div>
+ <div id="empty-state" style="display:none;">Keine Einträge gefunden.</div>
+ <div id="feedback-list"></div>
+</div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, query, orderBy, where, getCountFromServer, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+// Gleiche Firebase-Projektkonfiguration wie die Hauptapp (index.html)
+const firebaseConfig = {
+ apiKey: "AIzaSyDI_oDGXnI1qYu6e3UxbVYMUE6g2tuvNGI",
+ authDomain: "planungshilfe.firebaseapp.com",
+ projectId: "planungshilfe",
+ storageBucket: "planungshilfe.firebasestorage.app",
+ messagingSenderId: "410877195958",
+ appId: "1:410877195958:web:30c741e27a7963b8989817"
+};
+
+// Nur dieses Konto darf Feedback sehen. Der eigentliche Schutz passiert über
+// die Firestore Security Rules (allow read: if request.auth.uid == diese UID) -
+// diese Prüfung hier ist nur für eine schnelle, freundliche Fehlermeldung im UI.
+const ALLOWED_UID = "D4PuDU7xd0YqylaApAsVK0sOmQA2";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let allFeedback = [];
+let currentFilter = "Alle";
+
+function getFriendlyAuthErrorMessage(code){
+ switch(code){
+   case 'auth/invalid-email': return "Die eingegebene E-Mail-Adresse ist ungültig.";
+   case 'auth/user-not-found':
+   case 'auth/wrong-password':
+   case 'auth/invalid-credential': return "Falsche E-Mail-Adresse oder falsches Passwort.";
+   default: return "Anmeldung fehlgeschlagen (" + code + ").";
+ }
+}
+
+window.handleLogin = async function(){
+ const email = document.getElementById('login-email').value.trim();
+ const password = document.getElementById('login-password').value;
+ const errorEl = document.getElementById('login-error');
+ const btn = document.getElementById('login-btn');
+ errorEl.style.display = 'none';
+
+ if(!email || !password){
+   errorEl.textContent = "Bitte E-Mail und Passwort eingeben.";
+   errorEl.style.display = 'block';
+   return;
+ }
+
+ btn.disabled = true;
+ btn.textContent = "Wird geprüft...";
+ try {
+   await signInWithEmailAndPassword(auth, email, password);
+   // Rest übernimmt onAuthStateChanged
+ } catch(e){
+   errorEl.textContent = getFriendlyAuthErrorMessage(e.code);
+   errorEl.style.display = 'block';
+ } finally {
+   btn.disabled = false;
+   btn.textContent = "Anmelden";
+ }
+};
+
+window.handleLogout = async function(){
+ await signOut(auth);
+};
+
+function showView(view){
+ document.getElementById('login-view').style.display = view === 'login' ? 'block' : 'none';
+ document.getElementById('denied-view').style.display = view === 'denied' ? 'block' : 'none';
+ document.getElementById('app-view').style.display = view === 'app' ? 'block' : 'none';
+}
+
+const SEASON_LABELS = { summer: "Sommer / Früherbst", transition: "Frühling / Spätherbst", winter: "Winter" };
+const DURATION_LABELS = { day: "Tagestour", hut: "Mehrtagestour (Hütte)" };
+
+function renderBreakdown(containerId, dataMap, labelMap){
+ const container = document.getElementById(containerId);
+ if(!dataMap || Object.keys(dataMap).length === 0){
+   container.innerHTML = '<p class="breakdown-empty">Noch keine Daten.</p>';
+   return;
+ }
+ const entries = Object.entries(dataMap).sort((a, b) => b[1] - a[1]);
+ const max = entries[0][1] || 1;
+ container.innerHTML = entries.map(([key, count]) => {
+   const label = (labelMap && labelMap[key]) || key;
+   const pct = Math.max(4, Math.round((count / max) * 100));
+   return `<div class="breakdown-row">
+     <div class="breakdown-row-top">
+       <span class="breakdown-row-name">${escapeHtml(label)}</span>
+       <span class="breakdown-row-count">${count}×</span>
+     </div>
+     <div class="breakdown-bar-bg"><div class="breakdown-bar-fill" style="width:${pct}%;"></div></div>
+   </div>`;
+ }).join('');
+}
+
+async function loadUsageStats(){
+ try {
+   const usersSnap = await getCountFromServer(collection(db, "users"));
+   document.getElementById('stat-users').textContent = usersSnap.data().count;
+ } catch(e) {
+   document.getElementById('stat-users').textContent = "–";
+   console.warn("Nutzerzahl konnte nicht geladen werden:", e);
+ }
+
+ try {
+   const leadersSnap = await getCountFromServer(query(collection(db, "users"), where("isTourLeader", "==", true)));
+   document.getElementById('stat-tourleaders').textContent = leadersSnap.data().count;
+ } catch(e) {
+   document.getElementById('stat-tourleaders').textContent = "–";
+   console.warn("Tourenführer-Zahl konnte nicht geladen werden:", e);
+ }
+
+ try {
+   const toursSnap = await getCountFromServer(collection(db, "tours"));
+   document.getElementById('stat-tours').textContent = toursSnap.data().count;
+ } catch(e) {
+   document.getElementById('stat-tours').textContent = "–";
+   console.warn("Touren-Zahl konnte nicht geladen werden:", e);
+ }
+
+ try {
+   const usageDoc = await getDoc(doc(db, "stats", "usage"));
+   const usageData = usageDoc.exists() ? usageDoc.data() : {};
+   document.getElementById('stat-lists').textContent = usageData.listsGenerated || 0;
+   renderBreakdown('breakdown-courses', usageData.courses);
+   renderBreakdown('breakdown-features', usageData.features);
+   renderBreakdown('breakdown-seasons', usageData.seasons, SEASON_LABELS);
+   renderBreakdown('breakdown-durations', usageData.durations, DURATION_LABELS);
+ } catch(e) {
+   document.getElementById('stat-lists').textContent = "–";
+   console.warn("Nutzungszähler konnte nicht geladen werden:", e);
+ }
+}
+
+async function loadFeedback(){
+ const loadingEl = document.getElementById('loading-state');
+ loadingEl.style.display = 'block';
+ try {
+   const q = query(collection(db, "feedback"), orderBy("createdAt", "desc"));
+   const snap = await getDocs(q);
+   allFeedback = [];
+   snap.forEach((docSnap) => {
+     allFeedback.push({ id: docSnap.id, ...docSnap.data() });
+   });
+   renderList();
+ } catch(e){
+   document.getElementById('feedback-list').innerHTML =
+     `<div class="card" style="border-left:5px solid #dc2626;">Fehler beim Laden: ${escapeHtml(e.message)}</div>`;
+ } finally {
+   loadingEl.style.display = 'none';
+ }
+}
+
+window.setFilter = function(cat){
+ currentFilter = cat;
+ document.querySelectorAll('.filter-chip').forEach((chip) => {
+   chip.classList.toggle('active', chip.getAttribute('data-cat') === cat);
+ });
+ renderList();
+};
+
+function escapeHtml(str){
+ if(str === null || str === undefined) return '';
+ return String(str)
+   .replace(/&/g, '&amp;')
+   .replace(/</g, '&lt;')
+   .replace(/>/g, '&gt;')
+   .replace(/"/g, '&quot;')
+   .replace(/'/g, '&#39;');
+}
+
+function categorySlug(cat){
+ if(cat === "Fehler melden") return "Fehler";
+ if(cat === "Idee & Wunsch") return "Idee";
+ return "Sonstiges";
+}
+
+function categoryIcon(cat){
+ if(cat === "Fehler melden") return "🐞";
+ if(cat === "Idee & Wunsch") return "💡";
+ return "💬";
+}
+
+function formatDate(ts){
+ if(!ts) return "";
+ const d = ts.toDate ? ts.toDate() : new Date(ts);
+ return d.toLocaleString('de-AT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+window.renderList = function(){
+ const searchTerm = document.getElementById('search-input').value.trim().toLowerCase();
+ const filtered = allFeedback.filter((f) => {
+   const matchesCategory = currentFilter === "Alle" || f.category === currentFilter;
+   const matchesSearch = !searchTerm || (f.message || '').toLowerCase().includes(searchTerm);
+   return matchesCategory && matchesSearch;
+ });
+
+ document.getElementById('stats').textContent =
+   `${filtered.length} von ${allFeedback.length} Einträgen`;
+
+ const listEl = document.getElementById('feedback-list');
+ const emptyEl = document.getElementById('empty-state');
+
+ if(filtered.length === 0){
+   listEl.innerHTML = '';
+   emptyEl.style.display = 'block';
+   return;
+ }
+ emptyEl.style.display = 'none';
+
+ listEl.innerHTML = filtered.map((f) => {
+   const slug = categorySlug(f.category);
+   const icon = categoryIcon(f.category);
+   const metaParts = [];
+   if(f.email){ metaParts.push(`<span>✉️ <a href="mailto:${escapeHtml(f.email)}">${escapeHtml(f.email)}</a></span>`); }
+   else if(f.userEmail){ metaParts.push(`<span>👤 ${escapeHtml(f.userEmail)} (angemeldet)</span>`); }
+   else { metaParts.push(`<span>👤 Nicht angemeldet</span>`); }
+   if(f.page){ metaParts.push(`<span>🔗 ${escapeHtml(f.page.length > 60 ? f.page.slice(0,60)+'…' : f.page)}</span>`); }
+
+   return `<div class="feedback-item cat-${slug}">
+     <div class="feedback-header">
+       <span class="feedback-badge badge-${slug}">${icon} ${escapeHtml(f.category || 'Sonstiges')}</span>
+       <span class="feedback-date">${formatDate(f.createdAt)}</span>
+     </div>
+     <div class="feedback-message">${escapeHtml(f.message)}</div>
+     <div class="feedback-meta">${metaParts.join('')}</div>
+   </div>`;
+ }).join('');
+};
+
+onAuthStateChanged(auth, async (user) => {
+ if(user){
+   if(user.uid === ALLOWED_UID){
+     showView('app');
+     await loadUsageStats();
+     await loadFeedback();
+   } else {
+     showView('denied');
+   }
+ } else {
+   showView('login');
+ }
+});
+
+// Gleicher Service Worker wie die Hauptapp - cacht das Grundgerüst dieser
+// Seite mit, damit sie ebenfalls installierbar ist (Login-Maske öffnet
+// auch offline; die eigentlichen Feedback-Daten brauchen natürlich weiterhin
+// eine Verbindung zu Firestore).
+if('serviceWorker' in navigator){
+ window.addEventListener('load', () => {
+   navigator.serviceWorker.register('sw.js').catch((err) => {
+     console.warn('Service Worker Registrierung fehlgeschlagen:', err);
+   });
+ });
+}
+</script>
+</body>
+</html>
