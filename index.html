@@ -1923,7 +1923,8 @@ window.runPlanner = async function() {
    const ropeCount = getScaledRopeQty(2, groupSize);
    const ropeItem = ropeCount>1 ? createItem("Einfachseil 50m", 3170*ropeCount, 'backpack', ropeCount, 3170) : createItem("Einfachseil 50m", 3170, 'backpack');
    const expressComp = scaledMultiSelectDefault('express', 'default', getExpressMultiplier(groupSize));
-   const expressItem = createItem(expressComp.name, expressComp.weight, 'backpack', expressComp.qty, expressComp.unitWeight);
+   const expressItem = createItem(expressComp.baseName || expressComp.name, expressComp.weight, 'backpack', expressComp.qty, expressComp.unitWeight);
+   expressItem.multiSelectType = 'express';
    if(leaderList){
      return [ropeItem, expressItem, createItem("Klemmkeile / Keile", 250, 'backpack'), createItem("Friends / Camalots", 350, 'backpack')];
    }
@@ -1934,7 +1935,9 @@ window.runPlanner = async function() {
    // auf andere Längen/Seiltypen) - unabhängig von der Teamgröße, da alle am selben Seil angeseilt sind.
    // Dazu 10 Expressschlingen (z.B. für Fixpunkte/Verankerungen), gleicher Standard wie beim Klettern.
    const expressComp = scaledMultiSelectDefault('express', 'default', 1);
-   return [createItem("Einfachseil 50m", 3170, 'backpack'), createItem(expressComp.name, expressComp.weight, 'backpack', expressComp.qty, expressComp.unitWeight)];
+   const expressItem = createItem(expressComp.baseName || expressComp.name, expressComp.weight, 'backpack', expressComp.qty, expressComp.unitWeight);
+   expressItem.multiSelectType = 'express';
+   return [createItem("Einfachseil 50m", 3170, 'backpack'), expressItem];
  }
 
  // Gültige Team-Einteilung: Kinder zählen für die Seilschaftsgröße wie Erwachsene mit (gemeinsame
@@ -2258,7 +2261,8 @@ window.renderChecklist = function() {
      let isExcluded = item.name.toLowerCase().includes("teleskop") || item.name.toLowerCase().includes("sonnenbrille") || item.name.toLowerCase().includes("jause");
      let showCarrierBtn = isTourLeaderList && userIsTourLeader && !isReadOnly && isTechnicalCategory && item.location === 'backpack' && !isExcluded;
 
-     let safeName = escapeHtml((item.qty && item.qty>1) ? `${item.qty}× ${item.name}` : item.name);
+     let displayQty = item.displayUnitDivisor ? Math.round((item.qty||1) / item.displayUnitDivisor) : item.qty;
+     let safeName = escapeHtml((displayQty && displayQty>1) ? `${displayQty}× ${item.name}` : ((item.displayUnitDivisor && item.qty>1) ? `1× ${item.name}` : item.name));
      let safeCarrier = escapeHtml(item.carrier);
      let carrierDisplay = item.carrier ? `<span class="carrier-badge">wird von ${safeCarrier} eingepackt</span>` : '';
      let carrierBtnHtml = showCarrierBtn ? `<button type="button" class="carrier-btn" onclick="assignCarrier(${catIndex}, ${itemIndex})">Wer packt's ein?</button>` : '';
@@ -2732,11 +2736,14 @@ function scaledMultiSelectDefault(configKey, context, multiplier){
      const qty = baseQty * multiplier;
      totalWeight += qty * opt.unitWeight;
      parts.push(qty + '× ' + opt.name);
-     singleType = singleType === null ? {qty, unitWeight: opt.unitWeight} : false;
+     singleType = singleType === null ? {qty, unitWeight: opt.unitWeight, baseName: opt.name} : false;
    }
  });
  const result = { name: parts.join(', '), weight: totalWeight };
- if(singleType){ result.qty = singleType.qty; result.unitWeight = singleType.unitWeight; }
+ // baseName = reiner Typname OHNE eingebackene Stückzahl (z.B. "Express lang" statt "10× Express lang") -
+ // wichtig, wenn der Aufrufer qty/unitWeight separat als Item-Feld setzt, damit die Stückzahl nicht
+ // doppelt angezeigt wird (einmal im Namenstext, einmal automatisch durch die qty-Anzeige).
+ if(singleType){ result.qty = singleType.qty; result.unitWeight = singleType.unitWeight; result.baseName = singleType.baseName; }
  return result;
 }
 
@@ -2883,16 +2890,19 @@ window.openSwapItemModal = function(catIndex, itemIndex){
      if(builtinEntry.scale === 'rope'){
        const ropeGroupSize = opt.ropeGroupSize || 2;
        const ropeSets = getScaledRopeQty(ropeGroupSize, groupAdultCount);
-       // opt.qty (z.B. 2 Stränge bei Halb-/Zwillingsseil) bleibt als Stückzahl erhalten, ropeSets
-       // multipliziert nur die Anzahl benötigter Seil-Sets (z.B. 2 Sets Halbseile = 4 Stränge).
-       const totalQty = (opt.qty || 1) * ropeSets;
+       const strandsPerSet = opt.qty || 1; // 2 bei Halb-/Zwillingsseile (Paar), 1 bei Einfachseil
+       const totalQty = strandsPerSet * ropeSets;
        const unitWeight = opt.qty ? opt.unitWeight : opt.weight;
-       return { name: opt.name, totalWeight: totalQty*unitWeight, qty: totalQty, unitWeight: unitWeight };
+       const displayName = strandsPerSet>1 ? opt.name.replace(/^(\S+)/, '$1 (' + strandsPerSet + ' Stränge)') : opt.name;
+       return { name: displayName, totalWeight: totalQty*unitWeight, qty: totalQty, unitWeight: unitWeight, setCount: ropeSets, strandsPerSet: strandsPerSet };
      }
-     return { name: opt.name, totalWeight: opt.qty ? opt.qty*opt.unitWeight : opt.weight, qty: opt.qty || null, unitWeight: opt.qty ? opt.unitWeight : null };
+     return { name: opt.name, totalWeight: opt.qty ? opt.qty*opt.unitWeight : opt.weight, qty: opt.qty || null, unitWeight: opt.qty ? opt.unitWeight : null, setCount: null, strandsPerSet: 1 };
    });
    html += window.__pendingBuiltinScaledOptions.map(function(opt, idx){
-     const qtyPrefix = (opt.qty && opt.qty>1) ? opt.qty + '× ' : '';
+     // Bei Halb-/Zwillingsseile zeigt der Präfix die Anzahl SETS (z.B. "1× ... (2 Stränge) 50m"),
+     // nicht die rohe Strangzahl - die steht ja schon im Namen. Sonst wie gewohnt die Stückzahl.
+     const prefixQty = opt.strandsPerSet>1 ? opt.setCount : opt.qty;
+     const qtyPrefix = (prefixQty && prefixQty>1) ? prefixQty + '× ' : (opt.strandsPerSet>1 ? '1× ' : '');
      return `<button type="button" class="modal-btn" style="margin:0;background:#f1f5f9;color:#1e293b;text-align:left;" onclick="applyBuiltinAlternative(${idx})">${qtyPrefix}${escapeHtml(opt.name)} <span style="color:#64748b;">(${escapeHtml(opt.totalWeight)} g)</span></button>`;
    }).join('');
  } else {
@@ -2962,6 +2972,11 @@ window.applyBuiltinAlternative = function(idx){
  } else {
    item.qty = 1;
    delete item.unitWeight;
+ }
+ if(opt.strandsPerSet && opt.strandsPerSet>1){
+   item.displayUnitDivisor = opt.strandsPerSet;
+ } else {
+   delete item.displayUnitDivisor;
  }
  closeSwapItemModal();
  renderChecklist();
@@ -3049,11 +3064,25 @@ window.applySplitItem = async function(){
  }
  if(allocations.length === 0) return;
 
+ const divisor = item.displayUnitDivisor || null;
  const newItems = allocations.map(function(a){
    const meta = getBackpackMeta(a.loc);
    const suffix = (locations.length>1 && meta.label) ? ` (${meta.label})` : '';
    const baseName = item.name.replace(/^\d+×\s/, ''); // führendes "10× " entfernen, wird durch neue Stückzahl automatisch ersetzt
-   return createSplitItem(baseName + suffix, a.qty, item.unitWeight, a.loc);
+   let finalName = baseName;
+   let finalDivisor = null;
+   if(divisor){
+     if(a.qty % divisor === 0){
+       // Bleibt ein voller Satz (oder mehrere) - "(N Stränge)"-Wortlaut und Set-Anzeige bleiben erhalten
+       finalDivisor = divisor;
+     } else {
+       // Nicht glatt teilbar (z.B. nur 1 von 2 Strängen) - auf Einzelstrang-Bezeichnung umstellen
+       finalName = baseName.replace(/^(Halbseile|Zwillingsseile)(\s\(\d+ Stränge\))?/, function(_, word){ return word.slice(0, -1); });
+     }
+   }
+   const newItem = createSplitItem(finalName + suffix, a.qty, item.unitWeight, a.loc);
+   if(finalDivisor){ newItem.displayUnitDivisor = finalDivisor; }
+   return newItem;
  });
  currentCategories[pendingSplitCatIndex].items.splice(pendingSplitItemIndex, 1, ...newItems);
 
