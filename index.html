@@ -2464,7 +2464,7 @@ const GEAR_CATEGORIES = ["Bekleidung","Technische Ausrüstung","Sicherheit & Ers
 function mapCategoryTitleToGearCategory(title){
  const t = (title||"").toLowerCase();
  if(t.includes("kleidung") || t.includes("bekleidung")) return "Bekleidung";
- if(t.includes("technische")) return "Technische Ausrüstung";
+ if(t.includes("technische") || t.includes("seilschaft")) return "Technische Ausrüstung";
  if(t.includes("sicherheit")) return "Sicherheit & Erste Hilfe";
  if(t.includes("jause") || t.includes("flüssigkeit")) return "Jause & Flüssigkeit";
  if(t.includes("dokumente")) return "Dokumente & Sonstiges";
@@ -2650,7 +2650,7 @@ window.saveItemToLibrary = async function(catIndex, itemIndex){
 // "scale" steuert, wie die Stückzahl mit der Personenanzahl mitwächst (siehe getScaledRopeQty/getScaledDeviceQty).
 const BUILTIN_ALTERNATIVES = [
  {
-   match: (name) => name.includes("Kletterseil") || name.includes("Einfachseil") || name.includes("Seil, Expressschlingen"),
+   match: (name) => name.includes("Kletterseil") || name.includes("Einfachseil") || name.includes("Halbseile") || name.includes("Zwillingsseile") || name.includes("Seil, Expressschlingen"),
    scale: "rope",
    options: [
      {name:"Einfachseil 40m", weight:2530, ropeGroupSize:2},
@@ -2658,17 +2658,16 @@ const BUILTIN_ALTERNATIVES = [
      {name:"Einfachseil 60m", weight:3800, ropeGroupSize:2},
      {name:"Einfachseil 70m", weight:4430, ropeGroupSize:2},
      {name:"Einfachseil 80m", weight:5060, ropeGroupSize:2},
-     {name:"Halbseil 50m", qty:2, unitWeight:2340, ropeGroupSize:3},
-     {name:"Halbseil 60m", qty:2, unitWeight:2800, ropeGroupSize:3},
-     {name:"Halbseil 70m", qty:2, unitWeight:3270, ropeGroupSize:3},
-     {name:"Zwillingsseil 50m", qty:2, unitWeight:2000, ropeGroupSize:3},
-     {name:"Zwillingsseil 60m", qty:2, unitWeight:2400, ropeGroupSize:3},
-     {name:"Zwillingsseil 70m", qty:2, unitWeight:2800, ropeGroupSize:3}
+     {name:"Halbseile 50m", qty:2, unitWeight:2340, ropeGroupSize:3},
+     {name:"Halbseile 60m", qty:2, unitWeight:2800, ropeGroupSize:3},
+     {name:"Halbseile 70m", qty:2, unitWeight:3270, ropeGroupSize:3},
+     {name:"Zwillingsseile 50m", qty:2, unitWeight:2000, ropeGroupSize:3},
+     {name:"Zwillingsseile 60m", qty:2, unitWeight:2400, ropeGroupSize:3},
+     {name:"Zwillingsseile 70m", qty:2, unitWeight:2800, ropeGroupSize:3}
    ]
  },
  {
    match: (name) => name.includes("Sicherungsgerät"),
-   scale: "device",
    options: [
      {name:"Sicherungsgerät (Tube/ATC)", weight:70},
      {name:"Sicherungsgerät (Smart/Grigri/Click-Up/Revo)", weight:90}
@@ -2693,6 +2692,18 @@ function getAdultCountFromCategories(){
    if(it.location === 'backpack' || (it.location && it.location.indexOf('backpack:') === 0)){ locSet.add(it.location); }
  }));
  return Math.max(1, locSet.size);
+}
+
+// Für Team-Kategorien ("Seilschaft 1 (Anna, Tom) – ...") die tatsächliche Team-Größe anhand der im
+// Titel gelisteten Namen ermitteln, statt versehentlich die Personenzahl der GESAMTEN Tour zu nehmen.
+function getRelevantGroupSize(catIndex){
+ const title = (currentCategories[catIndex] && currentCategories[catIndex].title) || '';
+ const teamMatch = title.match(/^Seilschaft \d+ \(([^)]+)\)/);
+ if(teamMatch){
+   const names = teamMatch[1].split(', ').filter(Boolean);
+   return Math.max(1, names.length);
+ }
+ return getAdultCountFromCategories();
 }
 
 // Für Seile: 1 Seil pro "ropeGroupSize" Personen (Einfachseil: 2, Halb-/Zwillingsseil: 3 zulässig).
@@ -2796,7 +2807,8 @@ window.openSwapItemModal = function(catIndex, itemIndex){
  pendingSwapItemIndex = itemIndex;
  const item = currentCategories[catIndex].items[itemIndex];
  const gearCategory = mapCategoryTitleToGearCategory(currentCategories[catIndex].title);
- const groupAdultCount = getAdultCountFromCategories();
+ // Team-bewusst: bei einer "Seilschaft N (...)"-Kategorie zählt nur die Teamgröße, nicht die ganze Tour.
+ const groupAdultCount = getRelevantGroupSize(catIndex);
  document.getElementById('swap-item-current').innerHTML = `Aktuell: <strong>${escapeHtml(item.name)}</strong> (${escapeHtml(item.weight)} g) <span style="color:#94a3b8;">· Kategorie: ${escapeHtml(gearCategory)}</span>`;
  const optionsContainer = document.getElementById('swap-item-options');
  let html = '';
@@ -2804,12 +2816,11 @@ window.openSwapItemModal = function(catIndex, itemIndex){
  const multi = detectMultiSelect(item);
  if(multi){
    const config = MULTISELECT_CONFIGS[multi.configKey];
-   // Grund-Standard mit Personenzahl multiplizieren: Karabiner/Bandschlingen 1:1 pro Person,
-   // Expressschlingen nach Faustregel (1-3 Leute=1x, 4-5=2x, 6-7=3x, ...), Eisschrauben
-   // bleiben unskaliert (schon 1x pro Person via Personen-Schleife).
+   // Grund-Standard mit Personenzahl multiplizieren: nur Expressschlingen sind noch geteilte
+   // Team-Ausrüstung (Faustregel). Karabiner/Bandschlingen sind persönlich (kein Multiplikator mehr),
+   // Eisschrauben bleiben ebenfalls unskaliert (schon 1x pro Person via Personen-Schleife).
    let scaleMultiplier = 1;
-   if(multi.configKey === 'karabiner' || multi.configKey === 'bandschlinge'){ scaleMultiplier = groupAdultCount; }
-   else if(multi.configKey === 'express'){ scaleMultiplier = getExpressMultiplier(groupAdultCount); }
+   if(multi.configKey === 'express'){ scaleMultiplier = getExpressMultiplier(groupAdultCount); }
    const rawDefaults = config.defaults[multi.context] || config.defaults.default || {};
    const scaledDefaults = {};
    Object.keys(rawDefaults).forEach((k) => {
@@ -2836,9 +2847,8 @@ window.openSwapItemModal = function(catIndex, itemIndex){
    const activeSelection = parsedSelection || scaledDefaults;
 
    let scaleHint = '';
-   if(!parsedSelection && multi.configKey !== 'eisschraube'){
-     const ruleText = multi.configKey === 'express' ? 'Faustregel: 1-3 Leute=10, 4-5=20, 6-7=30, ...' : '1:1 pro Person';
-     scaleHint = `<p style="color:#94a3b8;font-size:0.82rem;margin:0 0 8px 0;">Vorschlag für ${groupAdultCount} Person${groupAdultCount===1?'':'en'} (${ruleText}) - du kannst die Werte unten frei anpassen.</p>`;
+   if(!parsedSelection && multi.configKey === 'express'){
+     scaleHint = `<p style="color:#94a3b8;font-size:0.82rem;margin:0 0 8px 0;">Vorschlag für ${groupAdultCount} Person${groupAdultCount===1?'':'en'} (Faustregel: 1-3 Leute=10, 4-5=20, 6-7=30, ...) - du kannst die Werte unten frei anpassen.</p>`;
    }
    html += `<div style="font-weight:700;color:var(--primary);font-size:0.85rem;margin-bottom:8px;">Zusammenstellen (Häkchen + Stückzahl + Gewicht/Stk.)</div>`;
    html += scaleHint;
@@ -2867,25 +2877,23 @@ window.openSwapItemModal = function(catIndex, itemIndex){
  if(builtin){
    html += `<div style="font-weight:700;color:var(--primary);font-size:0.85rem;margin-bottom:4px;">Varianten</div>`;
    if(builtinEntry.scale === 'rope'){
-     html += `<p style="color:#94a3b8;font-size:0.82rem;margin:0 0 8px 0;">Menge automatisch für ${groupAdultCount} Person${groupAdultCount===1?'':'en'} berechnet (1 Einfachseil pro 2, Halb-/Zwillingsseil pro 3 Personen).</p>`;
-   } else if(builtinEntry.scale === 'device'){
-     html += `<p style="color:#94a3b8;font-size:0.82rem;margin:0 0 8px 0;">Menge automatisch für ${groupAdultCount} Person${groupAdultCount===1?'':'en'} berechnet (1 Gerät pro Person).</p>`;
+     html += `<p style="color:#94a3b8;font-size:0.82rem;margin:0 0 8px 0;">Menge automatisch für ${groupAdultCount} Person${groupAdultCount===1?'':'en'} berechnet (1 Einfachseil pro 2, Halb-/Zwillingsseile pro 3 Personen). Halb-/Zwillingsseile bestehen aus 2 Strängen, die sich später einzeln per ✂️ aufteilen lassen.</p>`;
    }
    window.__pendingBuiltinScaledOptions = builtin.map(function(opt){
      if(builtinEntry.scale === 'rope'){
        const ropeGroupSize = opt.ropeGroupSize || 2;
-       const qty = opt.qty ? getScaledRopeQty(ropeGroupSize, groupAdultCount) * opt.qty : getScaledRopeQty(ropeGroupSize, groupAdultCount);
+       const ropeSets = getScaledRopeQty(ropeGroupSize, groupAdultCount);
+       // opt.qty (z.B. 2 Stränge bei Halb-/Zwillingsseil) bleibt als Stückzahl erhalten, ropeSets
+       // multipliziert nur die Anzahl benötigter Seil-Sets (z.B. 2 Sets Halbseile = 4 Stränge).
+       const totalQty = (opt.qty || 1) * ropeSets;
        const unitWeight = opt.qty ? opt.unitWeight : opt.weight;
-       return { name: qty > (opt.qty || 1) ? qty + '× ' + opt.name : opt.name, totalWeight: qty*unitWeight };
+       return { name: opt.name, totalWeight: totalQty*unitWeight, qty: totalQty, unitWeight: unitWeight };
      }
-     if(builtinEntry.scale === 'device'){
-       const qty = groupAdultCount;
-       return { name: qty > 1 ? qty + '× ' + opt.name : opt.name, totalWeight: qty*opt.weight };
-     }
-     return { name: opt.name, totalWeight: opt.qty ? opt.qty*opt.unitWeight : opt.weight };
+     return { name: opt.name, totalWeight: opt.qty ? opt.qty*opt.unitWeight : opt.weight, qty: opt.qty || null, unitWeight: opt.qty ? opt.unitWeight : null };
    });
    html += window.__pendingBuiltinScaledOptions.map(function(opt, idx){
-     return `<button type="button" class="modal-btn" style="margin:0;background:#f1f5f9;color:#1e293b;text-align:left;" onclick="applyBuiltinAlternative(${idx})">${escapeHtml(opt.name)} <span style="color:#64748b;">(${escapeHtml(opt.totalWeight)} g)</span></button>`;
+     const qtyPrefix = (opt.qty && opt.qty>1) ? opt.qty + '× ' : '';
+     return `<button type="button" class="modal-btn" style="margin:0;background:#f1f5f9;color:#1e293b;text-align:left;" onclick="applyBuiltinAlternative(${idx})">${qtyPrefix}${escapeHtml(opt.name)} <span style="color:#64748b;">(${escapeHtml(opt.totalWeight)} g)</span></button>`;
    }).join('');
  } else {
    window.__pendingBuiltinScaledOptions = null;
@@ -2948,8 +2956,13 @@ window.applyBuiltinAlternative = function(idx){
  const suffix = suffixMatch ? ' ' + suffixMatch[1] : '';
  item.name = opt.name + suffix;
  item.weight = opt.totalWeight;
- item.qty = 1;
- delete item.unitWeight;
+ if(opt.qty && opt.qty>1){
+   item.qty = opt.qty;
+   item.unitWeight = opt.unitWeight;
+ } else {
+   item.qty = 1;
+   delete item.unitWeight;
+ }
  closeSwapItemModal();
  renderChecklist();
  saveCheckboxState();
@@ -3709,7 +3722,7 @@ var HELP_TOPICS = [
  {group:"Die generierte Liste", title:"Gewicht & Anzahl bearbeiten", text:"Angemeldete Nutzer können bei jedem Gegenstand auf das Gewicht (✏️) tippen und Anzahl sowie Gewicht pro Stück eintragen (z.B. 3× HMS-Karabiner à 80g). Auch beim manuellen Hinzufügen eines Gegenstands lässt sich direkt eine Stückzahl angeben."},
  {group:"Die generierte Liste", title:"Rucksack wechseln", text:"Sobald mehrere Rucksäcke im Spiel sind (mehrere Personen und/oder Kinder), erscheint bei jedem Gegenstand ein Dropdown, mit dem du festlegen kannst, in welchen Rucksack er tatsächlich wandert."},
  {group:"Eigene Ausrüstung", title:"Meine Ausrüstung verwalten", text:"Im Account-Bereich (angemeldet) kannst du unter '🎒 Meine Ausrüstung' eigene Gegenstände mit Name, Gewicht und Kategorie speichern - ideal, wenn du z.B. mehrere Jacken oder Rucksäcke mit unterschiedlichem Gewicht besitzt. Mit Suchfeld und Bearbeiten-Funktion (✏️)."},
- {group:"Eigene Ausrüstung", title:"Variante wählen (🔁)", text:"Bei manchen Gegenständen (z.B. Kletterseil, Sicherungsgerät) stehen eingebaute Varianten zur Auswahl (z.B. Einfach-/Halb-/Zwillingsseil in verschiedenen Längen). Bei Karabiner, Expressschlingen, Bandschlingen und Eisschrauben kannst du per Häkchen + Stückzahl sogar mehrere Typen gleichzeitig zusammenstellen (z.B. 2 HMS-Karabiner + 3 Schraubkarabiner). Zusätzlich kannst du bei jedem Listenpunkt aus deiner passenden eigenen Ausrüstung (gleiche Kategorie) auswählen, welche Variante du diesmal mitnimmst - Name und Gewicht werden automatisch übernommen."},
+ {group:"Eigene Ausrüstung", title:"Variante wählen (🔁)", text:"Bei manchen Gegenständen (z.B. Kletterseil, Sicherungsgerät) stehen eingebaute Varianten zur Auswahl (z.B. Einfachseil/Halbseile/Zwillingsseile in verschiedenen Längen - Halb-/Zwillingsseile bestehen aus 2 Strängen, die sich später per ✂️ auf verschiedene Personen aufteilen lassen). Bei Karabiner, Expressschlingen, Bandschlingen und Eisschrauben kannst du per Häkchen + Stückzahl sogar mehrere Typen gleichzeitig zusammenstellen (z.B. 2 HMS-Karabiner + 3 Schraubkarabiner). Zusätzlich kannst du bei jedem Listenpunkt aus deiner passenden eigenen Ausrüstung (gleiche Kategorie) auswählen, welche Variante du diesmal mitnimmst - Name und Gewicht werden automatisch übernommen."},
  {group:"Eigene Ausrüstung", title:"Aufteilen (✂️)", text:"Bei Gegenständen mit mehreren Stück (z.B. 10× Expressschlingen, 2× Biwaksack) kannst du festlegen, wie viele davon in welchen Rucksack kommen - z.B. 4 Express zu Anna, 6 zu Tom. Der Punkt wird dann automatisch in mehrere Listeneinträge aufgeteilt. Erscheint nur bei Gegenständen mit Stückzahl größer 1 und wenn mehrere Rucksäcke vorhanden sind."},
  {group:"Eigene Ausrüstung", title:"Als eigene Ausrüstung speichern (💾)", text:"Übernimmt einen Listenpunkt direkt in deine Ausrüstungs-Bibliothek, ohne extra ins Verwaltungsmenü wechseln zu müssen."},
  {group:"Speichern & Teilen", title:"Tour speichern & Cloud-Konto", text:"Mit einem kostenlosen Konto kannst du Touren dauerhaft speichern, später wieder laden und deine eigene Ausrüstung verwalten."},
