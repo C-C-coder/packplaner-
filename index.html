@@ -150,7 +150,7 @@ button:active{transform:translateY(0)}
 .category-box{background:#ffffff;border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:22px;box-shadow:0 4px 12px rgba(0,0,0,0.02)}
 .category-box.collapsed{padding-bottom:22px}
 .category-box.collapsed .item-list{display:none}
-.category-collapse-arrow{color:#94a3b8;font-size:0.85rem;width:14px;display:inline-block;flex-shrink:0;}
+.category-collapse-arrow{color:#94a3b8;font-size:2.4rem;line-height:1;width:32px;display:inline-block;flex-shrink:0;text-align:center;}
 .category-box h3{color:var(--primary);border-bottom:2px solid #f1f5f9;padding-bottom:10px;margin-top:0;margin-bottom:18px;font-size:1.2rem;display:flex;justify-content:space-between;align-items:center}
 .category-title-left{display:flex;align-items:center;gap:12px}
 .category-add-btn{background:#10b981;color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(16,185,129,0.3);padding:0;transition:all 0.2s}
@@ -2715,6 +2715,46 @@ const BUILTIN_ALTERNATIVES = [
    options: [
      {name:"Sicherungsgerät (Tube/ATC)", weight:70},
      {name:"Sicherungsgerät (Smart/Grigri/Click-Up/Revo)", weight:90}
+   ]
+ },
+ {
+   match: (name) => name.includes("Atmungsaktives Funktionsshirt"),
+   options: [
+     {name:"Funktionsshirt kurzarm (Merino/Kunstfaser)", weight:130},
+     {name:"Funktionsshirt langarm (Merino/Kunstfaser)", weight:170}
+   ]
+ },
+ {
+   match: (name) => name.includes("(hohe Wandersocken)"),
+   options: [
+     {name:"Kurze Wandersocken", weight:60},
+     {name:"Hohe Wandersocken (Merino)", weight:80}
+   ]
+ },
+ {
+   match: (name) => name.includes("Berghose"),
+   options: [
+     {name:"Kurze Wander-/Trekkinghose", weight:250},
+     {name:"Leichte Trekking-/Berghose (lang)", weight:400},
+     {name:"Zip-Off-Hose (abnehmbare Beine)", weight:450},
+     {name:"Vollwertige gefütterte Winter-Berghose", weight:650}
+   ]
+ },
+ {
+   match: (name) => (name.includes("Wanderschuhe") || name.includes("Bergschuhe")) && !name.includes("Kinder-"),
+   options: [
+     {name:"Trailrunning-/Zustiegsschuhe (Kategorie A)", weight:700},
+     {name:"Wanderschuhe / Trekking-Halbschuhe (Kategorie A/B)", weight:900},
+     {name:"Feste Bergschuhe (Kategorie B oder B/C)", weight:1400},
+     {name:"Bergschuhe steigeisenfest (Kategorie C)", weight:1600}
+   ]
+ },
+ {
+   match: (name) => name.includes("Leichte, packbare Regenjacke") || name.includes("Hardshell-Jacke"),
+   options: [
+     {name:"Leichte, packbare Regenjacke", weight:250},
+     {name:"Softshelljacke (atmungsaktiv, wenig Nässe)", weight:350},
+     {name:"Wasserdichte & winddichte Hardshell-Jacke", weight:450}
    ]
  }
 ];
