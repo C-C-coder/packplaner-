@@ -101,6 +101,14 @@ button:active{transform:translateY(0)}
 .help-item{margin-bottom:14px;}
 .help-item h4{margin:0 0 4px 0;font-size:0.95rem;color:#1e293b;}
 .help-item p{margin:0;font-size:0.88rem;color:#64748b;line-height:1.5;}
+.help-group-details{margin-bottom:6px;border-bottom:1px solid #f1f5f9;}
+.help-group-details:first-child{margin-top:0;}
+.help-group-summary{list-style:none;cursor:pointer;font-weight:800;color:var(--primary);font-size:1rem;padding:10px 0;display:flex;justify-content:space-between;align-items:center;user-select:none;}
+.help-group-summary::-webkit-details-marker{display:none;}
+.help-group-summary::after{content:'▸';font-weight:700;color:#94a3b8;transition:transform 0.15s;flex-shrink:0;margin-left:10px;}
+.help-group-details[open] .help-group-summary::after{transform:rotate(90deg);}
+.help-group-summary .help-group-count{font-weight:600;color:#94a3b8;font-size:0.82rem;margin-left:8px;}
+.help-group-body{padding:4px 0 14px 0;}
 #help-no-results{color:#94a3b8;font-size:0.9rem;text-align:center;padding:20px 0;display:none;}
 
 /* Fortschrittsbalken Styling */
@@ -140,6 +148,9 @@ button:active{transform:translateY(0)}
 #shared-packing-btn.active{color:#059669;}
 
 .category-box{background:#ffffff;border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:22px;box-shadow:0 4px 12px rgba(0,0,0,0.02)}
+.category-box.collapsed{padding-bottom:22px}
+.category-box.collapsed .item-list{display:none}
+.category-collapse-arrow{color:#94a3b8;font-size:0.85rem;width:14px;display:inline-block;flex-shrink:0;}
 .category-box h3{color:var(--primary);border-bottom:2px solid #f1f5f9;padding-bottom:10px;margin-top:0;margin-bottom:18px;font-size:1.2rem;display:flex;justify-content:space-between;align-items:center}
 .category-title-left{display:flex;align-items:center;gap:12px}
 .category-add-btn{background:#10b981;color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(16,185,129,0.3);padding:0;transition:all 0.2s}
@@ -276,6 +287,8 @@ form,.btn-container,.safety-warning,.dynamic-info-box,.video-box,.delete-btn,.lo
 #checklist-output .category-box.search-hide-category{display:flex!important}
 #checklist-output.filter-missing .category-box,
 #checklist-output .category-box.search-hide-category{display:block!important}
+/* Eingeklappte Kategorien beim Drucken/PDF immer vollständig zeigen */
+#checklist-output .category-box.collapsed .item-list{display:block!important}
 }
 </style>
 </head>
@@ -2236,16 +2249,22 @@ window.renderChecklist = function() {
    hiddenItems = [];
  }
 
+ let collapsedKey = 'oeav_collapsed_' + localStorageBaseKey();
+ let collapsedCategories = [];
+ try { collapsedCategories = JSON.parse(localStorage.getItem(collapsedKey) || '[]'); } catch(e) { collapsedCategories = []; }
+
  currentCategories.forEach((cat, catIndex)=>{
-   let catHtml=`<div class="category-box">
+   let isCollapsed = collapsedCategories.includes(cat.title);
+   let catHtml=`<div class="category-box${isCollapsed ? ' collapsed' : ''}" data-cat-title="${encodeURIComponent(cat.title)}">
      <h3>
-       <div class="category-title-left">
-         <span>${escapeHtml(cat.title)}</span>`;
+       <div class="category-title-left" onclick="toggleCategoryCollapse(${catIndex})" style="cursor:pointer;">
+         <span class="category-collapse-arrow">${isCollapsed ? '▸' : '▾'}</span>
+         <span>${escapeHtml(cat.title)}</span>
+       </div>`;
    if(!isReadOnly) {
-     catHtml+=`<button type="button" class="category-add-btn" onclick="openAddItemModal(${catIndex})" title="Gegenstand hinzufügen">+</button>`;
+     catHtml+=`<button type="button" class="category-add-btn" onclick="event.stopPropagation();openAddItemModal(${catIndex})" title="Gegenstand hinzufügen">+</button>`;
    }
-   catHtml+=`</div>
-     </h3>
+   catHtml+=`</h3>
      <ul class="item-list">`;
    let hasItems=false;
 
@@ -2284,7 +2303,9 @@ window.renderChecklist = function() {
        locationBadge = `<span class="${badgeClass}"${editableAttr}>${labelPart}ca. ${escapeHtml(item.weight)} g${canEditGear?' ✏️':''}</span>`;
      }
 
-     let swapBtnHtml = canEditGear ? `<button type="button" class="carrier-btn" style="background:#0ea5e9;" onclick="openSwapItemModal(${catIndex},${itemIndex})" title="Variante wählen">🔁</button>` : '';
+     const gearCategoryForSwap = mapCategoryTitleToGearCategory(cat.title);
+     const hasSwap = detectMultiSelect(item) || getBuiltinAlternativesEntry(item.name) || userGearLibrary.some((g) => (g.category||"Sonstiges")===gearCategoryForSwap);
+     let swapBtnHtml = (canEditGear && hasSwap) ? `<button type="button" class="carrier-btn" style="background:#0ea5e9;" onclick="openSwapItemModal(${catIndex},${itemIndex})" title="Variante wählen">🔁</button>` : '';
      let saveGearBtnHtml = canEditGear ? `<button type="button" class="carrier-btn" style="background:#64748b;" onclick="saveItemToLibrary(${catIndex},${itemIndex})" title="Als eigene Ausrüstung speichern">💾</button>` : '';
      let splitBtnHtml = (canEditGear && item.qty && item.qty>1 && locations.length>1) ? `<button type="button" class="carrier-btn" style="background:#f59e0b;" onclick="openSplitItemModal(${catIndex},${itemIndex})" title="Auf mehrere Personen aufteilen">✂️</button>` : '';
 
@@ -2401,6 +2422,25 @@ function animateWeightValue(backpackWeight, backpackKg){
    tagEl.innerText = "🔴 Schwer"; tagEl.className = "weight-tag heavy";
  }
 }
+
+window.toggleCategoryCollapse = function(catIndex){
+ const cat = currentCategories[catIndex];
+ if(!cat) return;
+ const box = document.querySelector(`.category-box[data-cat-title="${encodeURIComponent(cat.title)}"]`);
+ const collapsedKey = 'oeav_collapsed_' + localStorageBaseKey();
+ let collapsedCategories = [];
+ try { collapsedCategories = JSON.parse(localStorage.getItem(collapsedKey) || '[]'); } catch(e) { collapsedCategories = []; }
+ const idx = collapsedCategories.indexOf(cat.title);
+ let nowCollapsed;
+ if(idx === -1){ collapsedCategories.push(cat.title); nowCollapsed = true; }
+ else { collapsedCategories.splice(idx, 1); nowCollapsed = false; }
+ try { localStorage.setItem(collapsedKey, JSON.stringify(collapsedCategories)); } catch(e) {}
+ if(box){
+   box.classList.toggle('collapsed', nowCollapsed);
+   const arrow = box.querySelector('.category-collapse-arrow');
+   if(arrow){ arrow.textContent = nowCollapsed ? '▸' : '▾'; }
+ }
+};
 
 window.resetCheckboxes = function() {
  if(sharedPackingActive && currentTourId && !isReadOnly){
@@ -3743,6 +3783,7 @@ var HELP_TOPICS = [
  {group:"Personen & Teilnehmer", title:"Personen & Rucksäcke", text:"Gib die Anzahl der Erwachsenen an (inklusive dir). Namen sind optional. Ab 2 Personen bekommt jede Person einen eigenen, vollständigen Ausrüstungsblock mit eigenem Rucksack in der generierten Liste."},
  {group:"Personen & Teilnehmer", title:"Mit Kindern unterwegs", text:"Aktiviert kindgerechte, genormte Ausrüstung (Helm, Klettersteigset, Steigeisen etc., wo zutreffend) plus eigenen Kinderrucksack. Bei mehreren Kindern kannst du Namen eingeben - jedes Kind bekommt dann einen eigenen Ausrüstungsblock."},
  {group:"Personen & Teilnehmer", title:"Mit Hund unterwegs", text:"Passt die Ausrüstung ans Gelände an: auf normalem Terrain ein einfaches Zuggeschirr, bei absturzgefährdetem Gelände (ausgesetzte Steige, Klettersteig, Klettern, Gletscher) automatisch Sicherheitsgeschirr, Sicherungsseil und Tragetasche. Bei Hüttentouren gibt's zusätzlich einen Warnhinweis, vorab die Hunde-Erlaubnis der Hütte zu prüfen."},
+ {group:"Die generierte Liste", title:"Kategorien einklappen", text:"Tippe auf den Titel einer Kategorie (z.B. 'Person 2 – Bekleidung'), um sie ein- oder auszuklappen - praktisch bei langen Listen mit vielen Personen/Seilschaften, um den Überblick zu behalten. Der Zustand bleibt gespeichert, auch nach dem Neuladen. Beim Drucken werden trotzdem immer alle Kategorien vollständig angezeigt."},
  {group:"Die generierte Liste", title:"Häkchen & Pack-Fortschritt", text:"Hake Gegenstände beim Einpacken ab. Der Fortschrittsbalken oben zeigt an, wie viel Prozent schon eingepackt sind. 'Häkchen zurücksetzen' setzt alle Haken wieder auf null."},
  {group:"Die generierte Liste", title:"Mengen bei Gletscher/Hochtour & Alpinklettern", text:"Geteilte Ausrüstung (Seil, Expressschlingen) wird automatisch mit der Personenzahl mitskaliert: 1 Einfachseil pro 2 Personen, Halb-/Zwillingsseile erlauben Teams bis 3 Personen. Expressschlingen nach Faustregel 1-3 Personen=10 Stk., 4-5=20, 6-7=30 usw. Karabiner, Bandschlingen, Sicherungsgerät und Prusik sind dagegen immer persönliche Ausrüstung - jede Person hat ihr eigenes Set, unabhängig von der Gruppengröße."},
  {group:"Die generierte Liste", title:"Was fehlt noch?", text:"Der Button bei der Prozentanzeige blendet alle bereits abgehakten Gegenstände aus - so siehst du auf einen Blick nur noch das, was du noch einpacken musst."},
@@ -3783,15 +3824,27 @@ function renderHelpList(filterTerm){
    return;
  }
  noResults.style.display = 'none';
- var html = '';
- var lastGroup = null;
+
+ // Nach Gruppe sortiert zusammenfassen, Reihenfolge der ersten Nennung beibehalten
+ var groups = [];
+ var groupMap = {};
  filtered.forEach(function(t){
-   if(t.group !== lastGroup){
-     html += '<div class="help-group-title">' + t.group + '</div>';
-     lastGroup = t.group;
-   }
-   html += '<div class="help-item"><h4>' + t.title + '</h4><p>' + t.text + '</p></div>';
+   if(!groupMap[t.group]){ groupMap[t.group] = []; groups.push(t.group); }
+   groupMap[t.group].push(t);
  });
+
+ var html = groups.map(function(groupName){
+   var items = groupMap[groupName];
+   var itemsHtml = items.map(function(t){
+     return '<div class="help-item"><h4>' + t.title + '</h4><p>' + t.text + '</p></div>';
+   }).join('');
+   // Bei aktiver Suche automatisch aufgeklappt, damit Treffer sofort sichtbar sind; sonst eingeklappt.
+   var openAttr = term ? ' open' : '';
+   return '<details class="help-group-details"' + openAttr + '>' +
+     '<summary class="help-group-summary">' + groupName + '<span class="help-group-count">' + items.length + '</span></summary>' +
+     '<div class="help-group-body">' + itemsHtml + '</div>' +
+   '</details>';
+ }).join('');
  container.innerHTML = html;
 }
 
