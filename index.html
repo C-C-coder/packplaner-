@@ -1993,102 +1993,128 @@ window.runPlanner = async function() {
  let provisions=[createItem("Müllbeutel (Abfall mit ins Tal nehmen)",10,'backpack')];
  let misc=[createItem("Taschenmesser / Multitool",100,'backpack')];
 
- let soloKidsItems=[];
+ let soloKidsBlocks=[];
  let kidCategoryBlocks=[];
  if(pKids){
    for(let k=1; k<=kidCount; k++){
      let kidLoc = k===1 ? 'kids' : 'kids:'+k;
      let ksuf = kidCount>1 ? ` (${kidNames[k-1]})` : '';
-     let kidsItems=[];
      let kidsWaterAmount = noWaterSources ? 1000 : 600;
-     kidsItems.push(
-       createItem("Kinderrucksack (leer, ca. 10–15 Liter)"+ksuf,400,kidLoc),
-       createItem(`Trinkflasche (${(kidsWaterAmount/1000).toFixed(1)} Liter${noWaterSources?' – keine Nachfüllmöglichkeit unterwegs':''})`+ksuf,kidsWaterAmount,kidLoc),
-       createItem("Jause"+ksuf,200,kidLoc),
-       createItem("Erweiterter Sonnenschutz & Kappe mit Nackenschutz"+ksuf,100,kidLoc),
-       createItem("Kinder-Stirnlampe (inkl. Ersatzbatterien)"+ksuf,90,kidLoc)
-     );
+
+     // Wie bei Erwachsenen in typisierte Kategorien aufgeteilt, statt alles in einen Topf zu werfen -
+     // so funktionieren auch "Aus deiner eigenen Ausrüstung" (🔁) und das Speichern in die Bibliothek (💾)
+     // korrekt kategorisiert, und die Liste ist übersichtlicher.
+     let kidBody=[];
+     let kidBackpackClothing=[];
+     let kidTechnical=[];
+     let kidSafety=[];
+     let kidProvisions=[];
+
      // Am Kind getragene Bekleidung: gleiche Logik wie bei Erwachsenen (bodyClothing)
-     kidsItems.push(createItem("Funktionsshirt"+ksuf,120,'body'),createItem("Funktionssocken"+ksuf,60,'body'));
+     kidBody.push(createItem("Funktionsshirt"+ksuf,120,'body'),createItem("Funktionssocken"+ksuf,60,'body'));
      if(isWinterGear){
-       kidsItems.push(createItem("Warme, wetterfeste Winterhose"+ksuf,450,'body'));
+       kidBody.push(createItem("Warme, wetterfeste Winterhose"+ksuf,450,'body'));
      } else {
-       kidsItems.push(createItem("Leichte Trekkinghose"+ksuf,300,'body'));
+       kidBody.push(createItem("Leichte Trekkinghose"+ksuf,300,'body'));
      }
      if(tGlacier||tClimbing||tViaFerrata||altitude==='high'||isWinterGear||tScree){
-       kidsItems.push(createItem("Feste Kinder-Bergschuhe (ggf. steigeisenfest)"+ksuf,1000,'body'));
+       kidBody.push(createItem("Feste Kinder-Bergschuhe (ggf. steigeisenfest)"+ksuf,1000,'body'));
      } else {
-       kidsItems.push(createItem("Kinder-Wanderschuhe"+ksuf,700,'body'));
+       kidBody.push(createItem("Kinder-Wanderschuhe"+ksuf,700,'body'));
      }
+
      // Kinder-Bekleidung im Rucksack: gleiche Wetter-/Geländelogik wie bei Erwachsenen, kindgerecht dimensioniert
-     kidsItems.push(createItem("Wechsel-Funktionsshirt"+ksuf,120,kidLoc));
+     kidBackpackClothing.push(createItem("Wechsel-Funktionsshirt"+ksuf,120,kidLoc));
      if(isWinterGear){
-       kidsItems.push(
+       kidBackpackClothing.push(
          createItem("Warme Winterjacke bzw. Schneeanzug"+ksuf,500,kidLoc),
          createItem("Warme Handschuhe & Mütze"+ksuf,120,kidLoc)
        );
      } else {
-       kidsItems.push(createItem("Wärmende Zwischenschicht (Fleece)"+ksuf,250,kidLoc));
+       kidBackpackClothing.push(createItem("Wärmende Zwischenschicht (Fleece)"+ksuf,250,kidLoc));
        if(altitude==='high'||tGlacier||weather==='risky'||season==='transition'){
-         kidsItems.push(createItem("Dünne Mütze & Handschuhe"+ksuf,80,kidLoc));
+         kidBackpackClothing.push(createItem("Dünne Mütze & Handschuhe"+ksuf,80,kidLoc));
        }
      }
      if(isWinterGear||altitude==='high'||tGlacier||weather==='risky'||weather==='rain'){
-       kidsItems.push(createItem("Wasserdichte Regenjacke & -hose"+ksuf,350,kidLoc));
+       kidBackpackClothing.push(createItem("Wasserdichte Regenjacke & -hose"+ksuf,350,kidLoc));
      } else {
-       kidsItems.push(createItem("Leichte Regenjacke"+ksuf,180,kidLoc));
+       kidBackpackClothing.push(createItem("Leichte Regenjacke"+ksuf,180,kidLoc));
      }
      if(tRiver&&(season==='transition'||season==='winter')){
-       kidsItems.push(createItem("Wechselhose"+ksuf,250,kidLoc));
+       kidBackpackClothing.push(createItem("Wechselhose"+ksuf,250,kidLoc));
      }
      if(weather==='rain'||isWinterGear||tRiver){
-       kidsItems.push(createItem("Ersatzsocken"+ksuf,50,kidLoc));
+       kidBackpackClothing.push(createItem("Ersatzsocken"+ksuf,50,kidLoc));
      }
      if(isWinterGear||tSnowfields||tGlacier){
-       kidsItems.push(createItem("Kinder-Gamaschen"+ksuf,100,kidLoc));
+       kidBackpackClothing.push(createItem("Kinder-Gamaschen"+ksuf,100,kidLoc));
      }
      if(duration==='hut'){
-       kidsItems.push(createItem("Wechselwäsche"+ksuf,200,kidLoc));
+       kidBackpackClothing.push(createItem("Wechselwäsche"+ksuf,200,kidLoc));
      }
-     if(needsAvalancheGear){
-       kidsItems.push(createItem("LVS-Gerät, Lawinenschaufel & Sonde (kindgerechte Größe)"+ksuf,850,kidLoc));
-     }
+
      // Genormte/zertifizierte Kinderausrüstung für dieselben technischen Anforderungen wie bei Erwachsenen
+     if(needsAvalancheGear){
+       kidTechnical.push(createItem("LVS-Gerät, Lawinenschaufel & Sonde (kindgerechte Größe)"+ksuf,850,kidLoc));
+     }
      if(tClimbing||tViaFerrata||tGlacier){
-       kidsItems.push(
+       kidTechnical.push(
          createItem("Kletterhelm, kindgerechte Größe (CE-/UIAA-geprüft)"+ksuf,280,kidLoc),
          createItem("Kinder-Klettergurt (Kombi-/Brustgurt, altersgerecht, normiert)"+ksuf,320,kidLoc)
        );
      }
      if(tViaFerrata){
-       kidsItems.push(
+       kidTechnical.push(
          createItem("Kinder-Klettersteigset (normiert, geringeres Auslösegewicht)"+ksuf,450,kidLoc),
          createItem("Kinder-Klettersteighandschuhe"+ksuf,80,kidLoc)
        );
      }
      if(tClimbing){
-       kidsItems.push(createItem("Kinder-Kletterschuhe"+ksuf,300,kidLoc));
+       kidTechnical.push(createItem("Kinder-Kletterschuhe"+ksuf,300,kidLoc));
      }
      if(tGlacier){
-       kidsItems.push(
+       kidTechnical.push(
          createItem("Kinder-Steigeisen (kindgerechte Größe)"+ksuf,600,kidLoc),
          createItem("Kindergerechte Pickel-/Sicherungshandschlaufe"+ksuf,250,kidLoc)
        );
      }
      if(tSkitour){
-       kidsItems.push(
+       kidTechnical.push(
          createItem("Kinder-Tourenski-Set (Ski, Bindung, Felle)"+ksuf,2600,kidLoc),
          createItem("Kinder-Skihelm"+ksuf,280,kidLoc)
        );
      }
      if(tSnowshoe){
-       kidsItems.push(createItem("Kinderschneeschuhe (inkl. Bindung)"+ksuf,1100,kidLoc));
+       kidTechnical.push(createItem("Kinderschneeschuhe (inkl. Bindung)"+ksuf,1100,kidLoc));
      }
 
+     // Sicherheit & Sonstiges
+     kidSafety.push(
+       createItem("Kinderrucksack (leer, ca. 10–15 Liter)"+ksuf,400,kidLoc),
+       createItem("Erweiterter Sonnenschutz & Kappe mit Nackenschutz"+ksuf,100,kidLoc),
+       createItem("Kinder-Stirnlampe (inkl. Ersatzbatterien)"+ksuf,90,kidLoc)
+     );
+
+     // Jause & Flüssigkeit
+     kidProvisions.push(
+       createItem(`Trinkflasche (${(kidsWaterAmount/1000).toFixed(1)} Liter${noWaterSources?' – keine Nachfüllmöglichkeit unterwegs':''})`+ksuf,kidsWaterAmount,kidLoc),
+       createItem("Jause"+ksuf,200,kidLoc)
+     );
+
+     let kidPrefix = kidNames[k-1] + " – ";
+     let kidBlocks = [
+       {title: kidPrefix + "Bekleidung am Körper", items: kidBody},
+       {title: kidPrefix + "Bekleidung im Rucksack", items: kidBackpackClothing},
+       {title: kidPrefix + "Technische Ausrüstung", items: kidTechnical},
+       {title: kidPrefix + "Sicherheit & Sonstiges", items: kidSafety},
+       {title: kidPrefix + "Jause & Flüssigkeit", items: kidProvisions}
+     ];
+
      if(kidCount>1){
-       kidCategoryBlocks.push({title: kidNames[k-1] + " – Ausrüstung fürs Kind", items: kidsItems});
+       kidCategoryBlocks.push(...kidBlocks);
      } else {
-       soloKidsItems = kidsItems;
+       soloKidsBlocks = kidBlocks.map(function(b){ return {title: b.title.replace(kidPrefix, "Kind – "), items: b.items}; });
      }
    }
  }
@@ -2128,7 +2154,7 @@ window.runPlanner = async function() {
    if(kidCount>1){
      kidCategoryBlocks.forEach(function(block){ currentCategories.push(block); });
    } else {
-     currentCategories.push({title:"Zusatzausrüstung für Kinder",items:soloKidsItems});
+     soloKidsBlocks.forEach(function(block){ currentCategories.push(block); });
    }
  }
  if(pDog)currentCategories.push({title:"Zusatzausrüstung für den Hund",items:dogItems});
@@ -2304,7 +2330,7 @@ window.renderChecklist = function() {
      }
 
      const gearCategoryForSwap = mapCategoryTitleToGearCategory(cat.title);
-     const hasSwap = detectMultiSelect(item) || getBuiltinAlternativesEntry(item.name) || userGearLibrary.some((g) => (g.category||"Sonstiges")===gearCategoryForSwap);
+     const hasSwap = detectMultiSelect(item) || getBuiltinAlternativesEntry(item) || userGearLibrary.some((g) => (g.category||"Sonstiges")===gearCategoryForSwap);
      let swapBtnHtml = (canEditGear && hasSwap) ? `<button type="button" class="carrier-btn" style="background:#0ea5e9;" onclick="openSwapItemModal(${catIndex},${itemIndex})" title="Variante wählen">🔁</button>` : '';
      let saveGearBtnHtml = canEditGear ? `<button type="button" class="carrier-btn" style="background:#64748b;" onclick="saveItemToLibrary(${catIndex},${itemIndex})" title="Als eigene Ausrüstung speichern">💾</button>` : '';
      let splitBtnHtml = (canEditGear && item.qty && item.qty>1 && locations.length>1) ? `<button type="button" class="carrier-btn" style="background:#f59e0b;" onclick="openSplitItemModal(${catIndex},${itemIndex})" title="Auf mehrere Personen aufteilen">✂️</button>` : '';
@@ -2694,6 +2720,7 @@ window.saveItemToLibrary = async function(catIndex, itemIndex){
 // "scale" steuert, wie die Stückzahl mit der Personenanzahl mitwächst (siehe getScaledRopeQty/getScaledDeviceQty).
 const BUILTIN_ALTERNATIVES = [
  {
+   key: "rope",
    match: (name) => name.includes("Kletterseil") || name.includes("Einfachseil") || name.includes("Halbseile") || name.includes("Zwillingsseile") || name.includes("Seil, Expressschlingen"),
    scale: "rope",
    options: [
@@ -2711,6 +2738,7 @@ const BUILTIN_ALTERNATIVES = [
    ]
  },
  {
+   key: "sicherungsgeraet",
    match: (name) => name.includes("Sicherungsgerät"),
    options: [
      {name:"Sicherungsgerät (Tube/ATC)", weight:70},
@@ -2718,21 +2746,24 @@ const BUILTIN_ALTERNATIVES = [
    ]
  },
  {
-   match: (name) => name.includes("Atmungsaktives Funktionsshirt"),
+   key: "shirt",
+   match: (name) => name.includes("Atmungsaktives Funktionsshirt") || name.includes("Funktionsshirt kurzarm") || name.includes("Funktionsshirt langarm"),
    options: [
      {name:"Funktionsshirt kurzarm (Merino/Kunstfaser)", weight:130},
      {name:"Funktionsshirt langarm (Merino/Kunstfaser)", weight:170}
    ]
  },
  {
-   match: (name) => name.includes("(hohe Wandersocken)"),
+   key: "socken",
+   match: (name) => name.includes("(hohe Wandersocken)") || name.includes("Kurze Wandersocken") || name.includes("Hohe Wandersocken (Merino)"),
    options: [
      {name:"Kurze Wandersocken", weight:60},
      {name:"Hohe Wandersocken (Merino)", weight:80}
    ]
  },
  {
-   match: (name) => name.includes("Berghose"),
+   key: "hose",
+   match: (name) => name.includes("Berghose") || name.includes("Kurze Wander-/Trekkinghose") || name.includes("Zip-Off-Hose"),
    options: [
      {name:"Kurze Wander-/Trekkinghose", weight:250},
      {name:"Leichte Trekking-/Berghose (lang)", weight:400},
@@ -2741,7 +2772,8 @@ const BUILTIN_ALTERNATIVES = [
    ]
  },
  {
-   match: (name) => (name.includes("Wanderschuhe") || name.includes("Bergschuhe")) && !name.includes("Kinder-"),
+   key: "schuhe",
+   match: (name) => ((name.includes("Wanderschuhe") || name.includes("Bergschuhe")) && !name.includes("Kinder-")) || name.includes("Trailrunning-/Zustiegsschuhe"),
    options: [
      {name:"Trailrunning-/Zustiegsschuhe (Kategorie A)", weight:700},
      {name:"Wanderschuhe / Trekking-Halbschuhe (Kategorie A/B)", weight:900},
@@ -2750,22 +2782,77 @@ const BUILTIN_ALTERNATIVES = [
    ]
  },
  {
-   match: (name) => name.includes("Leichte, packbare Regenjacke") || name.includes("Hardshell-Jacke"),
+   key: "jacke",
+   match: (name) => name.includes("Leichte, packbare Regenjacke") || name.includes("Hardshell-Jacke") || name.includes("Softshelljacke"),
    options: [
      {name:"Leichte, packbare Regenjacke", weight:250},
      {name:"Softshelljacke (atmungsaktiv, wenig Nässe)", weight:350},
      {name:"Wasserdichte & winddichte Hardshell-Jacke", weight:450}
    ]
+ },
+ {
+   key: "kind-shirt",
+   match: (name) => /^Funktionsshirt(\s\([^)]+\))?$/.test(name) || name.includes("Kinder-Funktionsshirt"),
+   options: [
+     {name:"Kinder-Funktionsshirt kurzarm", weight:100},
+     {name:"Kinder-Funktionsshirt langarm", weight:130}
+   ]
+ },
+ {
+   key: "kind-socken",
+   match: (name) => (/^Funktionssocken(\s\([^)]+\))?$/.test(name) && !name.includes("Wandersocken")) || name.includes("Kinder-Wandersocken"),
+   options: [
+     {name:"Kurze Kinder-Wandersocken", weight:45},
+     {name:"Hohe Kinder-Wandersocken", weight:60}
+   ]
+ },
+ {
+   key: "kind-hose",
+   match: (name) => name.includes("Trekkinghose") || name.includes("wetterfeste Winterhose") || name.includes("Kinder-Trekkinghose"),
+   options: [
+     {name:"Kurze Kinder-Wander-/Trekkinghose", weight:200},
+     {name:"Leichte Kinder-Trekkinghose (lang)", weight:300},
+     {name:"Warme, wetterfeste Winterhose", weight:450}
+   ]
+ },
+ {
+   key: "kind-schuhe",
+   match: (name) => name.includes("Kinder-Wanderschuhe") || name.includes("Kinder-Bergschuhe"),
+   options: [
+     {name:"Kinder-Wanderschuhe", weight:700},
+     {name:"Feste Kinder-Bergschuhe (ggf. steigeisenfest)", weight:1000}
+   ]
+ },
+ {
+   key: "kind-jacke",
+   match: (name) => name.includes("Leichte Regenjacke") || name.includes("Regenjacke & -hose") || name.includes("Kinder-Softshelljacke"),
+   options: [
+     {name:"Leichte Regenjacke", weight:180},
+     {name:"Kinder-Softshelljacke", weight:250},
+     {name:"Wasserdichte Regenjacke & -hose", weight:350}
+   ]
  }
 ];
+
+function getBuiltinAlternativesEntryByKey(key){
+ return BUILTIN_ALTERNATIVES.find((e) => e.key === key) || null;
+}
 
 function getBuiltinAlternatives(itemName){
  const entry = BUILTIN_ALTERNATIVES.find((e) => e.match(itemName));
  return entry ? entry.options : null;
 }
 
-function getBuiltinAlternativesEntry(itemName){
- return BUILTIN_ALTERNATIVES.find((e) => e.match(itemName)) || null;
+// Prüft zuerst einen dauerhaften Marker am Gegenstand (item.builtinAltKey), der beim Anwenden einer
+// Variante gesetzt wird - so bleibt die Erkennung auch dann korrekt, wenn der neue Name (z.B. nach
+// Auswahl von "Softshelljacke") nicht mehr zum ursprünglichen Namensmuster passt.
+function getBuiltinAlternativesEntry(item){
+ if(typeof item === 'string'){ item = {name: item}; }
+ if(item.builtinAltKey){
+   const byKey = getBuiltinAlternativesEntryByKey(item.builtinAltKey);
+   if(byKey) return byKey;
+ }
+ return BUILTIN_ALTERNATIVES.find((e) => e.match(item.name)) || null;
 }
 
 // Anzahl Erwachsener anhand der aktuell vorhandenen Rucksäcke ermitteln (funktioniert auch nach
@@ -2959,8 +3046,9 @@ window.openSwapItemModal = function(catIndex, itemIndex){
    window.__pendingMultiSelectConfig = null;
  }
 
- const builtinEntry = !multi ? getBuiltinAlternativesEntry(item.name) : null;
+ const builtinEntry = !multi ? getBuiltinAlternativesEntry(item) : null;
  const builtin = builtinEntry ? builtinEntry.options : null;
+ window.__pendingBuiltinEntryKey = builtinEntry ? builtinEntry.key : null;
  if(builtin){
    html += `<div style="font-weight:700;color:var(--primary);font-size:0.85rem;margin-bottom:4px;">Varianten</div>`;
    if(builtinEntry.scale === 'rope'){
@@ -3031,6 +3119,8 @@ window.applyMultiSelect = function(configKey){
  item.qty = 1;
  item.multiSelectType = configKey;
  delete item.unitWeight;
+ delete item.builtinAltKey;
+ delete item.displayUnitDivisor;
  closeSwapItemModal();
  renderChecklist();
  saveCheckboxState();
@@ -3058,6 +3148,9 @@ window.applyBuiltinAlternative = function(idx){
  } else {
    delete item.displayUnitDivisor;
  }
+ if(window.__pendingBuiltinEntryKey){
+   item.builtinAltKey = window.__pendingBuiltinEntryKey;
+ }
  closeSwapItemModal();
  renderChecklist();
  saveCheckboxState();
@@ -3070,6 +3163,7 @@ window.closeSwapItemModal = function(){
  pendingSwapItemIndex = null;
  window.__pendingBuiltinScaledOptions = null;
  window.__pendingMultiSelectConfig = null;
+ window.__pendingBuiltinEntryKey = null;
 };
 
 // --- Mehrfach-Gegenstand (z.B. 10× Expressschlingen, 2× Biwaksack) auf mehrere Rucksäcke/Personen aufteilen ---
@@ -3196,6 +3290,8 @@ window.applySwapItem = function(gearId){
  item.qty = 1;
  delete item.unitWeight;
  delete item.multiSelectType;
+ delete item.builtinAltKey;
+ delete item.displayUnitDivisor;
  closeSwapItemModal();
  renderChecklist();
  saveCheckboxState();
