@@ -2088,10 +2088,11 @@ window.runPlanner = async function() {
      if(tSnowshoe){
        kidTechnical.push(createItem("Kinderschneeschuhe (inkl. Bindung)"+ksuf,1100,kidLoc));
      }
+     let kidRucksackVol = duration==='hut' ? "15–20 Liter" : "10–15 Liter", kidRucksackWeight = duration==='hut' ? 550 : 400;
+     kidTechnical.push(createItem(`Kinder-Wander-/Trekkingrucksack (leer, ca. ${kidRucksackVol}, inkl. Regenhülle)`+ksuf,kidRucksackWeight,kidLoc));
 
      // Sicherheit & Sonstiges
      kidSafety.push(
-       createItem("Kinderrucksack (leer, ca. 10–15 Liter)"+ksuf,400,kidLoc),
        createItem("Erweiterter Sonnenschutz & Kappe mit Nackenschutz"+ksuf,100,kidLoc),
        createItem("Kinder-Stirnlampe (inkl. Ersatzbatterien)"+ksuf,90,kidLoc)
      );
