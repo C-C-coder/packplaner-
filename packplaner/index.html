@@ -389,12 +389,10 @@ form,.btn-container,.safety-warning,.dynamic-info-box,.video-box,.delete-btn,.lo
 <div class="container">
 <header>
 <div class="header-logo-badge"><img src="alpenverein.png" alt="Österreichischer Alpenverein" class="header-logo"></div>
-<div class="planning-title">Ausrüstungs-Planungshilfe</div>
+<div class="planning-title">Ausrüstungsplaner</div>
 <div class="planning-subtitle">Österreichischer Alpenverein – Sektion Wiener Neustadt</div>
 </header>
 <div class="main-content">
-
-<div class="safety-warning"><span class="warning-icon">⚠️</span><div class="warning-text"><strong>Wichtiger Sicherheitshinweis & Tourenplanung:</strong> Informieren Sie sich unbedingt vorab sorgfältig über das Wetter und die aktuellen Verhältnisse vor Ort. <strong>Auch vermeintlich leichte Touren können bei schlechten Bedingungen extrem schwierig und gefährlich werden!</strong> Diese Liste dient als Orientierung und ersetzt keinesfalls einen alpinen Ausbildungskurs.</div></div>
 
 <div id="readonly-banner" class="readonly-banner">👁️ Ansichtsmodus: Diese Liste ist schreibgeschützt und kann nicht bearbeitet werden. Häkchen bleiben auf jedem Gerät individuell.</div>
 
@@ -817,6 +815,21 @@ form,.btn-container,.safety-warning,.dynamic-info-box,.video-box,.delete-btn,.lo
 </div>
 </div>
 
+<!-- Modal Dialog: Sicherheitshinweis, nur einmal pro Gerät gezeigt (siehe localStorage 'oeav_safety_ack') -->
+<div id="safety-warning-modal" class="modal-overlay">
+<div class="modal-content" style="max-width:440px; text-align:left;">
+ <h3 style="text-align:center;">⚠️ Wichtiger Sicherheitshinweis</h3>
+ <p style="font-size:0.95rem; color:#475569; line-height:1.6; margin-bottom:16px;">Informieren Sie sich unbedingt vorab sorgfältig über das Wetter und die aktuellen Verhältnisse vor Ort. <strong>Auch vermeintlich leichte Touren können bei schlechten Bedingungen extrem schwierig und gefährlich werden!</strong> Diese Liste dient als Orientierung und ersetzt keinesfalls einen alpinen Ausbildungskurs.</p>
+ <div id="safety-warning-remember-row" style="display:none; margin-bottom:18px; background:#f8fafc; padding:12px; border-radius:8px; border:1px solid var(--border);">
+   <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; font-size:0.9rem; margin:0;">
+     <input type="checkbox" id="safety-warning-remember-checkbox" style="width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;">
+     Diesen Hinweis nicht mehr anzeigen
+   </label>
+ </div>
+ <button type="button" class="modal-btn modal-btn-collab" style="margin:0;" onclick="closeSafetyWarningModal()">Verstanden</button>
+</div>
+</div>
+
 <!-- Modal Dialog: Hilfe & Funktionen -->
 <div id="help-modal" class="modal-overlay">
 <div class="modal-content" style="max-width:520px; text-align:left;">
@@ -995,6 +1008,7 @@ let pendingDeleteCatIndex = null;
 let pendingDeleteItemIndex = null;
 let pendingActionAfterLogin = null;
 let userIsTourLeader = false;
+let safetyWarningAcknowledged = false;
 let currentTourId = null;
 let currentTourOwnerId = null;
 let sharedPackingActive = false;
@@ -1112,12 +1126,14 @@ onAuthStateChanged(auth, async (user) => {
        tourLeaderToggleWrapper.style.display = 'none';
      }
      userGearLibrary = (userDoc.exists() && Array.isArray(userDoc.data().gearLibrary)) ? userDoc.data().gearLibrary : [];
+     safetyWarningAcknowledged = !!(userDoc.exists() && userDoc.data().safetyWarningAcknowledged);
    } catch(e) {
      console.error("Fehler beim Laden des Benutzerprofils:", e);
      if (!userIsTourLeader) {
        userIsTourLeader = false;
      }
      userGearLibrary = [];
+     safetyWarningAcknowledged = false;
    }
    window.userIsTourLeader = userIsTourLeader;
 
@@ -1136,6 +1152,7 @@ onAuthStateChanged(auth, async (user) => {
    tourLeaderBadge.style.display = 'none';
    userIsTourLeader = false;
    userGearLibrary = [];
+   safetyWarningAcknowledged = false;
    window.userIsTourLeader = false;
    document.getElementById('gear-library-link').style.display = 'none';
    document.getElementById('saved-tours-select').innerHTML = '<option value="">-- Meine gespeicherten Touren --</option>';
@@ -1536,6 +1553,37 @@ const coursePresets = {
  }
 };
 
+// Sicherheitshinweis: bei angemeldeten Nutzern pro ACCOUNT gespeichert (Firestore), nicht pro Gerät -
+// wichtig z.B. bei öffentlichen PCs, wo ein geräteweiter "nicht mehr zeigen" sonst für alle künftigen
+// Nutzer gelten würde. Ohne Anmeldung gibt's keine dauerhafte Speichermöglichkeit, daher erscheint der
+// Hinweis dort bewusst bei jeder neu erstellten Liste. Ausgelöst beim tatsächlichen Erstellen einer
+// Liste (nicht beim bloßen Laden der Seite oder Öffnen einer bereits gespeicherten Tour).
+function showSafetyWarningIfNeeded(){
+ if(safetyWarningAcknowledged) return;
+ const rememberRow = document.getElementById('safety-warning-remember-row');
+ const rememberCheckbox = document.getElementById('safety-warning-remember-checkbox');
+ if(auth.currentUser){
+   rememberRow.style.display = 'block';
+   rememberCheckbox.checked = false;
+ } else {
+   rememberRow.style.display = 'none';
+ }
+ document.getElementById('safety-warning-modal').style.display = 'flex';
+}
+
+window.closeSafetyWarningModal = async function(){
+ document.getElementById('safety-warning-modal').style.display = 'none';
+ const rememberCheckbox = document.getElementById('safety-warning-remember-checkbox');
+ if(auth.currentUser && rememberCheckbox && rememberCheckbox.checked){
+   try {
+     await setDoc(doc(db, "users", auth.currentUser.uid), { safetyWarningAcknowledged: true }, { merge: true });
+     safetyWarningAcknowledged = true;
+   } catch(e) {
+     console.error("Fehler beim Speichern der Sicherheitshinweis-Bestätigung:", e);
+   }
+ }
+};
+
 window.addEventListener('DOMContentLoaded', async () => {
  const urlParams = new URLSearchParams(window.location.search);
  const sharedTour = urlParams.get('tour');
@@ -1585,6 +1633,7 @@ window.loadCoursePreset = function(courseKey) {
  if (!userIsTourLeader) return;
  const preset = coursePresets[courseKey];
  if(!preset) return;
+ showSafetyWarningIfNeeded();
  trackListGenerated({ course: courseKey });
 
  currentCategories = JSON.parse(JSON.stringify(preset.categories));
@@ -1617,6 +1666,7 @@ window.loadCoursePreset = function(courseKey) {
 
 window.runPlanner = async function() {
  if(isReadOnly) return;
+ showSafetyWarningIfNeeded();
  document.getElementById('checklist-search').value = '';
  document.getElementById('checklist-output').classList.remove('filter-missing');
  currentTourName = "";
@@ -3963,7 +4013,8 @@ var HELP_TOPICS = [
  {group:"App installieren", title:"Am Android-Handy (Chrome)", text:"Über das Drei-Punkte-Menü oben rechts \"App installieren\" bzw. \"Zum Startbildschirm hinzufügen\" antippen. Manche Geräte zeigen dafür auch automatisch ein Banner am unteren Bildschirmrand an. Das App-Icon landet danach wie eine normale App auf dem Homescreen."},
  {group:"App installieren", title:"Am iPhone/iPad (nur mit Safari)", text:"Wichtig: Auf iOS funktioniert das nur über Safari, nicht über Chrome. Die Seite in Safari öffnen, unten auf das Teilen-Symbol (Quadrat mit Pfeil nach oben) tippen, dann \"Zum Home-Bildschirm\" auswählen und bestätigen. Die App erscheint danach als eigenes Icon auf dem Home-Bildschirm und startet ohne Safari-Adressleiste."},
  {group:"App installieren", title:"Offline-Modus", text:"Das Grundgerüst der App öffnet auch ohne Internetverbindung (nach mindestens einem vorherigen Besuch mit Verbindung). Ein oranger Hinweis oben zeigt automatisch an, wenn du offline bist. Liste ansehen, Häkchen setzen, Gegenstände hinzufügen/bearbeiten und Gewicht ändern funktioniert dann weiterhin lokal. Anmelden, Cloud-Speichern, Touren laden, Teilen und 'Gemeinsam packen' brauchen dagegen zwingend eine Verbindung."},
- {group:"Sonstiges", title:"Feedback geben", text:"Ganz unten auf der Seite gibt's einen 'Feedback geben'-Link - egal ob Fehler, Idee oder sonstige Rückmeldung, einfach kurz eintippen und absenden. Eine E-Mail-Adresse ist optional, nur falls eine Rückmeldung gewünscht ist."}
+ {group:"Sonstiges", title:"Feedback geben", text:"Ganz unten auf der Seite gibt's einen 'Feedback geben'-Link - egal ob Fehler, Idee oder sonstige Rückmeldung, einfach kurz eintippen und absenden. Eine E-Mail-Adresse ist optional, nur falls eine Rückmeldung gewünscht ist."},
+ {group:"Sonstiges", title:"⚠️ Sicherheitshinweis", text:"Informieren Sie sich unbedingt vorab sorgfältig über das Wetter und die aktuellen Verhältnisse vor Ort. Auch vermeintlich leichte Touren können bei schlechten Bedingungen extrem schwierig und gefährlich werden! Diese Liste dient als Orientierung und ersetzt keinesfalls einen alpinen Ausbildungskurs."}
 ];
 
 function renderHelpList(filterTerm){
