@@ -1,6 +1,6 @@
 {
-  "name": "ÖAV-Sektion Wiener Neustadt Ausrüstungs-Planungshilfe",
-  "short_name": "Ausrüstung",
+  "name": "Ausrüstungsplaner - ÖAV Wiener Neustadt",
+  "short_name": "Ausrüstungsplaner",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f8f9fa",
