@@ -2711,9 +2711,15 @@ window.saveItemToLibrary = async function(catIndex, itemIndex){
  const name = await customPrompt("Unter welchem Namen soll dieser Gegenstand in deiner Ausrüstung gespeichert werden?", item.name);
  if(!name) return;
  const unitWeight = item.unitWeight || item.weight;
- userGearLibrary.push({ id: 'g' + Date.now() + Math.random().toString(36).slice(2,7), name: name.trim(), weight: unitWeight, category: gearCategory });
+ // Gegenstands-Typ ermitteln (z.B. "jacke", "schuhe", "karabiner") - dadurch wird diese gespeicherte
+ // Variante später gezielt nur bei PASSENDEN Gegenständen vorgeschlagen, nicht bei der ganzen Kategorie.
+ const multiInfo = detectMultiSelect(item);
+ const builtinInfo = !multiInfo ? getBuiltinAlternativesEntry(item) : null;
+ const itemTypeKey = multiInfo ? multiInfo.configKey : (builtinInfo ? builtinInfo.key : null);
+ userGearLibrary.push({ id: 'g' + Date.now() + Math.random().toString(36).slice(2,7), name: name.trim(), weight: unitWeight, category: gearCategory, itemTypeKey: itemTypeKey });
  saveGearLibraryToCloud();
- await customAlert(`"${name.trim()}" wurde unter "${gearCategory}" zu deiner Ausrüstung hinzugefügt. Du findest sie ab sofort bei passenden Listenpunkten unter "🔁 Variante wählen".`);
+ const scopeHint = itemTypeKey ? " Wird künftig gezielt bei passenden Gegenständen vorgeschlagen." : "";
+ await customAlert(`"${name.trim()}" wurde unter "${gearCategory}" zu deiner Ausrüstung hinzugefügt.${scopeHint} Du findest sie ab sofort bei passenden Listenpunkten unter "🔁 Variante wählen".`);
 };
 
 // Eingebaute Varianten für bestimmte Gegenstände (unabhängig von der eigenen Ausrüstungs-Bibliothek).
@@ -3078,14 +3084,28 @@ window.openSwapItemModal = function(catIndex, itemIndex){
    window.__pendingBuiltinScaledOptions = null;
  }
 
+ // Aktuellen Gegenstands-Typ ermitteln (z.B. "jacke", "karabiner"), damit gespeicherte eigene
+ // Ausrüstung gezielt zum richtigen Gegenstand vorgeschlagen wird statt nur nach grober Kategorie.
+ const currentTypeKey = multi ? multi.configKey : (builtinEntry ? builtinEntry.key : null);
  const matching = userGearLibrary.filter(function(g){ return (g.category || "Sonstiges") === gearCategory; });
+ const typeMatches = currentTypeKey ? matching.filter(function(g){ return g.itemTypeKey === currentTypeKey; }) : [];
+ const otherMatches = currentTypeKey ? matching.filter(function(g){ return g.itemTypeKey !== currentTypeKey; }) : matching;
+
  if(multi || builtin) html += `<div style="font-weight:700;color:var(--primary);font-size:0.85rem;margin:12px 0 4px 0;">Aus deiner eigenen Ausrüstung</div>`;
- if(!matching.length){
-   html += `<p style="color:#94a3b8;font-size:0.9rem;">Du hast in der Kategorie "${escapeHtml(gearCategory)}" noch keine eigene Ausrüstung gespeichert. Nutze "💾" bei einem Listenpunkt, um deine erste Variante zu speichern.</p>`;
- } else {
-   html += matching.map(function(g){
+ if(typeMatches.length){
+   html += `<p style="color:#94a3b8;font-size:0.8rem;margin:0 0 4px 0;">Speziell für diesen Gegenstand gespeichert:</p>`;
+   html += typeMatches.map(function(g){
+     return `<button type="button" class="modal-btn" style="margin:0 0 6px 0;background:#ecfdf5;color:#1e293b;text-align:left;border-color:#a7f3d0;" onclick="applySwapItem('${g.id}')">${escapeHtml(g.name)} <span style="color:#64748b;">(${escapeHtml(g.weight)} g)</span></button>`;
+   }).join('');
+ }
+ if(otherMatches.length){
+   if(typeMatches.length) html += `<p style="color:#94a3b8;font-size:0.8rem;margin:10px 0 4px 0;">Weitere eigene Ausrüstung in "${escapeHtml(gearCategory)}":</p>`;
+   html += otherMatches.map(function(g){
      return `<button type="button" class="modal-btn" style="margin:0;background:#f1f5f9;color:#1e293b;text-align:left;" onclick="applySwapItem('${g.id}')">${escapeHtml(g.name)} <span style="color:#64748b;">(${escapeHtml(g.weight)} g)</span></button>`;
    }).join('');
+ }
+ if(!typeMatches.length && !otherMatches.length){
+   html += `<p style="color:#94a3b8;font-size:0.9rem;">Du hast in der Kategorie "${escapeHtml(gearCategory)}" noch keine eigene Ausrüstung gespeichert. Nutze "💾" bei einem Listenpunkt, um deine erste Variante zu speichern.</p>`;
  }
  optionsContainer.innerHTML = html;
  document.getElementById('swap-item-modal').style.display = 'flex';
